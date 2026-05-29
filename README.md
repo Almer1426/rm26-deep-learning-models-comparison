@@ -26,9 +26,6 @@ Sistem deteksi pneumonia dari citra **chest X-ray** menggunakan **Convolutional 
 - 🔬 **Evaluasi Lengkap** — Classification Report & Confusion Matrix untuk setiap model
 - ⚖️ **Penanganan Class Imbalance** — Dynamic Class Weights berbasis distribusi data aktual
 - 🎯 **Two-Stage Fine-Tuning** — Feature Extraction → Full Fine-Tuning dengan learning rate scheduling
-- 🌐 **Web App Full-Stack** — Frontend React + Backend FastAPI untuk prediksi real-time
-- 🚀 **Production Deployment** — Backend di Railway, model weights di Hugging Face Hub
-- 🎨 **UI Premium** — Glassmorphism, animasi halus, dan desain responsif
 
 ---
 
@@ -160,20 +157,6 @@ CNN_Pneumonia_Detection/
 │   └── manipulation/                   # Utilitas data
 │       ├── data_augmentation.py        #   Script augmentasi gambar (Albumentations)
 │       └── kocok.py                    #   Script stratified split (70/15/15)
-│
-├── app/                                # Web Application
-│   ├── front/
-│   │   └── index.html                  # Frontend React SPA (single-file)
-│   │
-│   └── back/
-│       └── comvis-backend/             # Backend FastAPI
-│           ├── main.py                 #   App entry point & endpoint definitions
-│           ├── model.py                #   Model loading dari HF Hub & inference
-│           ├── preprocess.py           #   Image preprocessing (resize, RGB)
-│           ├── requirements.txt        #   Python dependencies
-│           ├── railway.toml            #   Railway deployment config
-│           ├── .gitignore
-│           └── README.md               #   Dokumentasi backend
 │
 └── .vscode/
     └── settings.json                   # Konfigurasi VS Code
