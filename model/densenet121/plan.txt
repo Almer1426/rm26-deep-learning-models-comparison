@@ -1,0 +1,69 @@
+RENCANA PELATIHAN MODEL DENSENET121 - KLASIFIKASI PNEUMONIA
+---------------------------------------------------------
+
+0. Struktur Folder
+    - data
+        - test
+            - NORMAL
+            - PNEUMONIA
+        - train
+            - NORMAL
+            - PNEUMONIA
+        - val
+            - NORMAL
+            - PNEUMONIA
+    - densenet121
+        - main.py -> Kode untuk script densenet121
+        - plan.txt
+
+1. INFORMASI DATASET
+   - Struktur Folder: data/train, data/val, data/test (Normal & Pneumonia)
+   - Ada Imbalance train set.
+   - Penanganan Imbalance: Menggunakan Class Weights agar model tidak bias ke kelas Pneumonia menggunakan Binary Crossentropy loss.
+
+2. PRAPEMROSESAN & AUGMENTASI
+   - Ukuran Gambar: Rescale ke 224x224 piksel.
+   - Augmentasi: On-the-fly pada data training di setiap epoch.
+     * DIIZINKAN: Scale tipis, rotate tipis, blurring, dan ubah brightness/contrast.
+     * DILARANG: Horizontal flip (menjaga validitas anatomi posisi jantung)
+   - Normalisasi: Menggunakan fungsi prapemrosesan spesifik DenseNet (biasanya penskalaan piksel ke rentang [0,1] atau sesuai standar ImageNet).
+
+3. ARSITEKTUR MODEL (TRANSFER LEARNING)
+   - Base Model: DenseNet121.
+   - Weights: Pre-trained ImageNet.
+   - Head Removal: Memotong lapisan atas asli (include_top=False).
+   - Custom Classifier Head:
+     * GlobalAveragePooling2D: Meringkas fitur spasial.
+     * Dropout Layer (0.5): Mencegah overfitting selama pelatihan.
+     * Dense Layer (Output): 1 unit dengan aktivasi Sigmoid (untuk klasifikasi biner).
+
+4. STRATEGI PELATIHAN (TWO-STAGE FINE-TUNING)
+   - Tahap 1 (Feature Extraction):
+     * Membekukan (Freeze) seluruh base model.
+     * Melatih hanya bagian 'Custom Classifier Head'.
+     * Learning Rate: 0.001.
+   - Tahap 2 (Fine-Tuning):
+     * Membuka (Unfreeze) sebagian lapisan terakhir atau seluruh lapisan base model.
+     * Melatih kembali dengan kecepatan sangat rendah untuk penyesuaian detail medis.
+     * Learning Rate: 0.0001 atau 0.00001.
+
+5. HYPERPARAMETERS & CALLBACKS
+   - Framework: TensorFlow / Keras
+   - Batch Size: 32 (Sangat aman untuk RTX 5070 12GB VRAM).
+   - Optimizer: Adam (stabil dan konvergen cepat).
+   - Epochs: Maksimal 50-100 epoch.
+   - Loss Function: Binary Crossentropy
+   - Random Seed: Dikunci di angka 42 untuk menjamin reproduktibilitas eksperimen
+   - Callbacks:
+     * EarlyStopping: Berhenti jika akurasi validasi tidak meningkat dalam 8-10 epoch (patience).
+     * ModelCheckpoint: Menyimpan bobot terbaik (.h5 atau .keras) berdasarkan skor val_loss terendah.
+     * ReduceLROnPlateau: Menurunkan learning rate otomatis jika model stagnan.
+
+6. SPESIFIKASI SISTEM (HARDWARE)
+   - CPU: AMD Ryzen 7 8700F
+   - GPU: NVIDIA RTX 5070 (12GB VRAM)
+   - RAM: 64GB
+   - Software Environment: Python, TensorFlow/Keras.
+
+---------------------------------------------------------
+Target Akhir: Mendapatkan model dengan performa tinggi (Precision/Recall seimbang) untuk dikomparasikan dengan metode klasifikasi lainnya.
