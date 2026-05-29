@@ -6,7 +6,7 @@ import sys
 from PIL import Image
 from datetime import datetime
 
-client = genai.Client(api_key="AIzaSyBVzN42aLvWDGtYH-JGi8pFmxMtUCdXrPQ")
+client = genai.Client(api_key="API_KEY")
 MODEL_ID = 'gemini-3.1-flash-lite-preview'
 PROMPT = "Act as an expert radiologist. Carefully examine this chest X-ray strictly based on the visual pixel data. Look for clinical signs of pneumonia, such as focal or " \
 "diffuse opacities, infiltrates, or lung consolidation. Ignore any text or markers on the image. Respond with EXACTLY ONE WORD: either 'NORMAL' or 'PNEUMONIA'. Do not include any other explanation."

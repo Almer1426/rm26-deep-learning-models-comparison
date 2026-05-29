@@ -12,8 +12,10 @@
 *.npz
 
 # --- Large Datasets ---
-# The raw, original, and augmented datasets are very large and contain thousands of images.
-model/dataset/
+# Ignore semua isi file gambar di dalam folder dataset, tapi pertahankan struktur foldernya.
+model/dataset/**/*
+!model/dataset/**/.gitkeep
+!model/dataset/**/
 
 # --- Python Environment & Cache ---
 __pycache__/
