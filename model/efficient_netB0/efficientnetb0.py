@@ -9,14 +9,14 @@ import numpy as np
 # Mengunci seed untuk reproduksibilitas
 tf.keras.utils.set_random_seed(42)
 
-# Path ke dataset (berada di luar folder vgg16)
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
+# Path ke dataset (berada di luar folder efficientnetb0)
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'dataset/data_stratified'))
 TRAIN_DIR = os.path.join(BASE_DIR, 'train')
 VAL_DIR = os.path.join(BASE_DIR, 'val')
 
 # Hyperparameters
 IMG_SIZE = (224, 224)
-BATCH_SIZE = 32
+BATCH_SIZE = 32 
 EPOCHS_STAGE_1 = 30
 EPOCHS_STAGE_2 = 50
 
@@ -47,19 +47,13 @@ val_dataset = val_dataset.cache().prefetch(buffer_size=AUTOTUNE)
 # ==========================================
 print("Mengekstrak label dari train_dataset untuk menghitung class weights dinamis...")
 
-# Mengambil semua label dari batch yang ada di train_dataset
-# Proses ini mungkin butuh beberapa detik karena akan membaca dataset 1x putaran
 train_labels = np.concatenate([y.numpy() for x, y in train_dataset], axis=0)
-
-# Karena label_mode='binary', bentuk array-nya [[0], [1], ...], kita ratakan ke 1D
 train_labels = train_labels.flatten()
 
-# Menghitung jumlah aktual setelah split
-count_0 = np.sum(train_labels == 0) # Jumlah Normal di Training
-count_1 = np.sum(train_labels == 1) # Jumlah Pneumonia di Training
+count_0 = np.sum(train_labels == 0) # Normal
+count_1 = np.sum(train_labels == 1) # Pneumonia
 total_train_data = count_0 + count_1
 
-# Menghitung bobot berdasarkan jumlah aktual
 weight_for_0 = total_train_data / (2.0 * count_0)
 weight_for_1 = total_train_data / (2.0 * count_1)
 class_weight = {0: weight_for_0, 1: weight_for_1}
@@ -71,13 +65,13 @@ print(f"Class Weights Final       : {class_weight}")
 # ==========================================
 # 2. PRAPEMROSESAN & AUGMENTASI
 # ==========================================
-# Mendefinisikan augmentasi on-the-fly (Tanpa Horizontal Flip untuk menjaga validitas posisi jantung)
+# Augmentasi on-the-fly (Tanpa Horizontal Flip untuk menjaga posisi jantung)
 data_augmentation = tf.keras.Sequential([
-    layers.RandomZoom(height_factor=(-0.05, 0.05), width_factor=(-0.05, 0.05)), # Scale tipis
-    layers.RandomRotation(factor=0.05), # Rotate tipis
-    layers.RandomBrightness(factor=0.1), # Ubah brightness
-    layers.RandomContrast(factor=0.1), # Ubah contrast
-    layers.GaussianNoise(stddev=0.1) # Simulasi blurring ringan
+    layers.RandomZoom(height_factor=(-0.05, 0.05), width_factor=(-0.05, 0.05)),
+    layers.RandomRotation(factor=0.05),
+    layers.RandomBrightness(factor=0.1),
+    layers.RandomContrast(factor=0.1),
+    layers.GaussianNoise(stddev=0.1)
 ], name="data_augmentation")
 
 # ==========================================
@@ -90,11 +84,14 @@ def build_model():
     # Augmentasi
     x = data_augmentation(inputs)
     
-    # Normalisasi khusus VGG16 (BGR conversion + mean subtraction)
-    x = applications.vgg16.preprocess_input(x)
-
-    # Base Model: VGG16
-    base_model = applications.VGG16(
+    # CATATAN PENTING EFFICIENTNET:
+    # Arsitektur EfficientNet di Keras sudah memiliki layer Rescaling (0-255 ke format internal) 
+    # di dalam modelnya. preprocess_input bawaan kodenya bersifat pass-through (tidak mengubah nilai),
+    # namun tetap disarankan untuk dipasang demi menjaga standarisasi pipeline.
+    x = applications.efficientnet.preprocess_input(x)
+    
+    # Base Model: EfficientNetB0
+    base_model = applications.EfficientNetB0(
         weights='imagenet', 
         include_top=False, 
         input_tensor=x
@@ -106,7 +103,7 @@ def build_model():
     # Custom Classifier Head
     x = base_model.output
     x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dropout(0.5)(x)
+    x = layers.Dropout(0.5)(x) # Dropout 0.5 untuk regulasi overfitting
     outputs = layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.Model(inputs, outputs)
@@ -117,8 +114,6 @@ model, base_model = build_model()
 # ==========================================
 # 5. CALLBACKS
 # ==========================================
-os.makedirs(os.path.join(os.path.dirname(__file__), '..', 'models'), exist_ok=True)
-
 callbacks_list = [
     callbacks.EarlyStopping(
         monitor='val_loss', 
@@ -127,7 +122,7 @@ callbacks_list = [
         verbose=1
     ),
     callbacks.ModelCheckpoint(
-        filepath=os.path.join(os.path.dirname(__file__), '..', 'models', 'vgg16_best.keras'),
+        filepath='efficientnetb0_best.keras',  # Disimpan dengan nama file berbeda
         monitor='val_loss', 
         save_best_only=True,
         verbose=1
@@ -162,12 +157,15 @@ history_stage_1 = model.fit(
 )
 
 print("\n--- MULAI TAHAP 2: Fine-Tuning ---")
-# Tahap 2: Membuka lapisan (Unfreeze) base model untuk penyesuaian detail medis
+# Tahap 2: Membuka lapisan (Unfreeze) base model
 base_model.trainable = True
 
-# Catatan: VGG16 tidak memiliki layer BatchNormalization, sehingga seluruh base layer di-unfreeze.
+# Memastikan BatchNormalization tetap beku agar statistik tidak rusak
+for layer in base_model.layers:
+    if isinstance(layer, layers.BatchNormalization):
+        layer.trainable = False
 
-# Compile ulang dengan learning rate yang sangat rendah (0.00001)
+# Compile ulang dengan learning rate yang sangat rendah
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
     loss=tf.keras.losses.BinaryCrossentropy(),
@@ -182,4 +180,4 @@ history_stage_2 = model.fit(
     callbacks=callbacks_list
 )
 
-print("\nPelatihan selesai! Bobot terbaik telah disimpan di 'models/vgg16_best.keras'.")
+print("\nPelatihan selesai! Bobot terbaik telah disimpan di 'efficientnetb0_best.keras'.")

@@ -10,7 +10,7 @@ import numpy as np
 tf.keras.utils.set_random_seed(42)
 
 # Path ke dataset (berada di luar folder densenet121)
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_stratified'))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'dataset/data_stratified'))
 TRAIN_DIR = os.path.join(BASE_DIR, 'train')
 VAL_DIR = os.path.join(BASE_DIR, 'val')
 
